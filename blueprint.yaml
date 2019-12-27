@@ -5,6 +5,7 @@ description: >
 
 imports:
   - http://cloudify.co/spec/cloudify/5.0.0/types.yaml
+  - plugin:cloudify-fabric-plugin
 
 inputs:
   infra_blueprint:
@@ -32,30 +33,37 @@ node_templates:
         deployment:
           inputs: { get_input: infra_inputs }
 
-  vm:
-    type: cloudify.nodes.Compute
-    properties:
-      agent_config:
-        install_method: none
-        extra:
-          proxy:
-            deployment: { get_attribute: [ infrastructure, deployment, id ] }
-            node_instance: { get_capability: [ { get_attribute: [ infrastructure, deployment, id ] }, vm_node_instance_id ] }
-    relationships:
-      - target: infrastructure
-        type: cloudify.relationships.depends_on
-
   jboss:
     type: cloudify.nodes.ApplicationServer
     interfaces:
       cloudify.interfaces.lifecycle:
-        create: scripts/create.sh
-        configure: scripts/configure.sh
-        start: scripts/start.sh
-        stop: scripts/stop.sh
+        create:
+          implementation: fabric.fabric_plugin.tasks.run_script
+          inputs:
+            script_path: scripts/create.sh
+            fabric_env: &fabric_env
+              host_string: { get_capability: [ { get_attribute: [ infrastructure, deployment, id ] }, public_ip ]}
+              user: { get_capability: [ { get_attribute: [ infrastructure, deployment, id ] }, ssh_user ]}
+              key_filename: { get_capability: [ { get_attribute: [ infrastructure, deployment, id ] }, private_key_path ]}
+
+        configure:
+          implementation: fabric.fabric_plugin.tasks.run_script
+          inputs:
+            script_path: scripts/configure.sh
+            fabric_env: *fabric_env
+        start:
+          implementation: fabric.fabric_plugin.tasks.run_script
+          inputs:
+            script_path: scripts/start.sh
+            fabric_env: *fabric_env
+        stop:
+          implementation: fabric.fabric_plugin.tasks.run_script
+          inputs:
+            script_path: scripts/stop.sh
+            fabric_env: *fabric_env
     relationships:
-      - type: cloudify.relationships.contained_in
-        target: vm
+      - type: cloudify.relationships.depends_on
+        target: infrastructure
 
 outputs:
   admin_url:
