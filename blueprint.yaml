@@ -1,0 +1,62 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+description: >
+  Deploys JBoss.
+
+imports:
+  - http://cloudify.co/spec/cloudify/5.0.0/types.yaml
+
+inputs:
+  infra_blueprint:
+    description: >
+      Name of infrastructure blueprint to deploy.
+    type: string
+    constraints:
+      - valid_values:
+          - mc-demo-jboss-openstack
+
+  infra_inputs:
+    description: >
+      Inputs that will be passed on to the infrastructure blueprint.
+    default: {}
+
+node_templates:
+  infrastructure:
+    type: cloudify.nodes.Component
+    properties:
+      resource_config:
+        blueprint:
+          id: { get_input: infra_blueprint }
+          external_resource: true
+        deployment:
+          inputs: { get_input: infra_inputs }
+
+  vm:
+    type: cloudify.nodes.Compute
+    properties:
+      agent_config:
+        install_method: none
+        extra:
+          proxy:
+            deployment: { get_attribute: [ infrastructure, deployment, id ] }
+            node_instance: { get_capability: [ { get_attribute: [ infrastructure, deployment, id ] }, vm_node_instance_id ] }
+    relationships:
+      - target: infrastructure
+        type: cloudify.relationships.depends_on
+
+  jboss:
+    type: cloudify.nodes.ApplicationServer
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/create.sh
+        configure: scripts/configure.sh
+        start: scripts/start.sh
+        stop: scripts/stop.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm
+
+outputs:
+  admin_url:
+    description: Administration console URL
+    value: { concat: [ 'http://', { get_capability: [ { get_attribute: [ infrastructure, deployment, id ] }, public_ip ] }, ':9990/console' ] }
