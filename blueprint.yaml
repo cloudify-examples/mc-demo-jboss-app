@@ -16,6 +16,7 @@ inputs:
       - valid_values:
           - mc-demo-jboss-openstack
           - mc-demo-jboss-azure-vm
+          - mc-demo-jboss-azure-vm-arm
 
   infra_inputs:
     description: >
