@@ -17,6 +17,7 @@ inputs:
           - mc-demo-jboss-openstack
           - mc-demo-jboss-azure-vm
           - mc-demo-jboss-azure-vm-arm
+          - mc-demo-jboss-aws-vm
 
   infra_inputs:
     description: >
